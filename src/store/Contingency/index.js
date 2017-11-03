@@ -1,4 +1,5 @@
-import * as firebase from 'firebase'
+import firebase from 'firebase'
+import 'firebase/firestore'
 import { firebaseConfig } from '../../helpers/firebaseHelper'
 
 export default {
@@ -26,7 +27,7 @@ export default {
       issueContingency({commit}, payload) {
         const issuance = payload
         const snackbar = {active: true, text: 'Contingency issued'}
-        firebase.database().ref('issuances').push(issuance)
+        firebase.firestore().collection('issuances').add(issuance)
           .then(() => {
             commit('setSnackbar', snackbar)
           })
@@ -37,18 +38,19 @@ export default {
       loadRecentContHistory ({commit}) {
         commit('setLoading', true)
         const recentHistory = []
-        firebase.database().ref('issuances').orderByChild("issueDate").limitToLast(10).on("child_added", function(snapshot) {
-          const obj = snapshot.val()
-          recentHistory.push({
-            id: snapshot.key,
-            centre: obj.centre,
-            sitting: obj.sitting,
-            exam: obj.exam,
-            components: obj.exam.components,
-            testDate: obj.testDate,
-            issueDate: new Date(obj.issueDate).toString().substr(0, 25),
-            issuedBy: obj.issuedBy,
-            zendeskRef: obj.zendeskRef
+        firebase.firestore().collection('issuances').orderBy("issueDate", "desc").limit(10).onSnapshot(function(snapshot) {
+          snapshot.forEach(function(doc) {
+            recentHistory.push({
+              id: doc.id,
+              centre: doc.data().centre,
+              sitting: doc.data().sitting,
+              exam: doc.data().exam,
+              components: doc.data().exam.components,
+              testDate: doc.data().testDate,
+              issueDate: new Date(doc.data().issueDate).toString().substr(0, 25),
+              issuedBy: doc.data().issuedBy,
+              zendeskRef: doc.data().zendeskRef
+            })
           })
           commit('setRecentHistory', recentHistory)
           commit('setLoading', false)
@@ -60,21 +62,18 @@ export default {
         const centre = payload.centre
         const exam = payload.exam
         commit('setLoading', true)
-        firebase.database().ref('issuances').orderByChild("centre").equalTo(centre).once('value')
-          .then((data) => {
+        firebase.firestore().collection('issuances').where("centre", "==", centre).get()
+          .then(function(doc) {
             const contHistory = []
-            const obj = data.val()
-            for (let key in obj) {
-              if (obj[key].exam.id === exam) {
+              if (doc.data().exam.id === exam) {
                 contHistory.push({
-                  id: key,
-                  centre: obj[key].centre,
-                  exam: obj[key].exam,
-                  issueDate: obj[key].issueDate,
-                  testDate: obj[key].testDate
+                  id: doc.id,
+                  centre: doc.data().centre,
+                  exam: doc.data().exam,
+                  issueDate: doc.data().issueDate,
+                  testDate: doc.data().testDate
                 })
               } 
-            }
             commit('setLoading', false)
             commit('setContHistory', contHistory)
           })
@@ -82,45 +81,6 @@ export default {
             console.log(error)
             commit('setLoading', false)
           })
-      },
-      loadFilteredContHistory ({commit}, payload) {
-        const filterType = payload.filterType
-        const filterValue = payload.filterValue
-        commit('setLoading', true)
-        firebase.database().ref('issuances').orderByChild(filterType).once('value')
-        .then((data) => {
-          const contHistory = []
-          const obj = data.val()
-          for (let key in obj) {
-            if (filterType === 'exam') {
-              if (obj[key].exam.name === filterValue) {
-                contHistory.push({
-                  id: key,
-                  centre: obj[key].centre,
-                  exam: obj[key].exam,
-                  issueDate: obj[key].issueDate,
-                  testDate: obj[key].testDate
-                })
-              }
-            } else if (filterType === 'centre') {
-              if (obj[key].centre === filterValue) {
-                contHistory.push({
-                  id: key,
-                  centre: obj[key].centre,
-                  exam: obj[key].exam,
-                  issueDate: obj[key].issueDate,
-                  testDate: obj[key].testDate
-                })
-              }
-            }
-          }
-          commit('setLoading', false)
-          commit('setFilteredContHistory', contHistory)
-        })
-        .catch((error) => {
-          console.log(error)
-          commit('setLoading', false)
-        })
       }
     },
     getters: {

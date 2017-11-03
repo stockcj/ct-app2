@@ -1,4 +1,5 @@
-import * as firebase from 'firebase'
+import firebase from 'firebase'
+import 'firebase/firestore'
 import { firebaseConfig } from '../../helpers/firebaseHelper'
 
 export default {
@@ -18,16 +19,15 @@ export default {
   actions: {
     loadExams ({commit}) {
       commit('setLoading', true)
-      firebase.database().ref('exams').on('value', function(data) {
+      firebase.firestore().collection('exams').get().then(function(querySnapshot) {
         const exams = []
-        const obj = data.val()
-        for (let key in obj) {
+        querySnapshot.forEach(function(doc){
           exams.push({
-            id: key,
-            name: obj[key].name,
-            components: obj[key].components,
+            id: doc.id,
+            name: doc.data().name,
+            components: doc.data().components,
           })
-        }
+        })
         commit('setLoading', false)
         commit('setLoadedExams', exams)
       })
@@ -35,7 +35,7 @@ export default {
     createExam ({commit}, payload) {
       const exam = payload
       const snackbar = {active: true, text: 'Exam created successfully'}
-      firebase.database().ref('exams').push(exam)
+      firebase.firestore().collection('exams').add(exam)
         .then(() => {
           commit('setSnackbar', snackbar)
         })
@@ -47,7 +47,7 @@ export default {
       commit('setLoading', true)
       const exam = payload
       const snackbar = {active: true, text: 'Exam updated successfully'}
-      firebase.database().ref('exams').child(payload.id).update(exam)
+      firebase.firestore().collection('exams').doc(payload.id).update(exam)
         .then(() => {
           commit('setLoading', false)
           commit('updateExam', payload)
@@ -61,7 +61,7 @@ export default {
     deleteExam ({commit}, payload) {
       commit('setLoading', true)
       const snackbar = {active: true, text: 'Exam deleted successfully'}
-      firebase.database().ref('exams').child(payload).remove()
+      firebase.firestore().collection('exams').doc(payload).delete()
         .then(() => {
           commit('setLoading', false)
           commit('setSnackbar', snackbar)

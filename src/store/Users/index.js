@@ -1,4 +1,5 @@
-import * as firebase from 'firebase'
+import firebase from 'firebase'
+import 'firebase/firestore'
 import { firebaseConfig } from '../../helpers/firebaseHelper'
 
 export default {
@@ -29,17 +30,16 @@ export default {
   actions: {
     loadUsers ({commit}) {
       commit('setLoading', true)
-      firebase.database().ref('users').once('value')
-        .then((data) => {
+      firebase.firestore().collection('users').get()
+        .then((querySnapshot) => {
           const users = []
-          const obj = data.val()
-          for (let key in obj) {
+          querySnapshot.forEach((doc) => {
             users.push({
-              id: key,
-              profile: obj[key].profile,
-              role: obj[key].role
+              id: doc.id,
+              profile: doc.data().profile,
+              role: doc.data().role
             })
-          }
+          })
           commit('setLoading', false)
           commit('setLoadedUsers', users)
         })
@@ -54,38 +54,31 @@ export default {
       const newFbConn = firebase.initializeApp(firebaseConfig, 'secondary')
       newFbConn.auth().createUserWithEmailAndPassword(payload.email, payload.password)
         .then(fbAuth => {
-          console.log(fbAuth.uid)
           const updateUserData = {}
-          updateUserData[`roles/${payload.role.id}/users/${fbAuth.uid}`] = true
-          updateUserData[`users/${fbAuth.uid}`] = {
-           profile: {
-             displayName: payload.displayName,
-             email: payload.email,
-             username: payload.username,
+          const batch = firebase.firestore().batch()
+          const userRef = firebase.firestore().collection('users').doc(fbAuth.id)
+          batch.set(userRef, {
+            profile: {
+              displayName: payload.displayName,
+              email: payload.email,
+              username: payload.username,
             },
-           role: {
-             id: payload.role.id,
-             name: payload.role.name
-           }
-          };
-          firebase.database().ref('/').update(updateUserData)
-          commit('setSnackbar', snackbar)
-          firebase.app('secondary').delete()
-          .then(() => {
-            console.log("App deleted successfully")
+            role: {
+              id: payload.role.id,
+              name: payload.role.name
+            }
           })
-          .catch((error) => {
-            console.log("Error deleting app:", error)
-          })
-        })
-        .catch((error) => {
-          commit('setError', error)
-          firebase.app('secondary').delete()
-          .then(() => {
-            console.log("App deleted successfully")
-          })
-          .catch((error) => {
-            console.log("Error deleting app:", error)
+          const roleRef = firebase.firestore().collection('roles').doc(payload.role.id)
+          batch.update(roleRef, {'users': fbAuth.uid = true})
+          batch.commit().then(() => {
+            commit('setSnackbar', snackbar)
+            firebase.app('secondary').delete()
+            .then(() => {
+              console.log("App deleted successfully")
+            })
+            .catch((error) => {
+              console.log("Error deleting app:", error)
+            })
           })
         })
     },
@@ -93,7 +86,7 @@ export default {
       commit('clearError')
       const snackbar = {active: true, text: 'User updated successfully'}
       const update = payload
-      firebase.database().ref('users').child(payload.id).update(update)
+      firebase.firestore().collection('users').doc(payload.id).update(update)
         .then(() => {
           commit('updateUser', payload)
           commit('setSnackbar', snackbar)
@@ -109,7 +102,7 @@ export default {
       commit('clearError')
       const snackbar = {active: true, text: 'Profile updated successfully'}
       const update = payload
-      firebase.database().ref('users').child(payload.id).update(update)
+      firebase.firestore().collection('users').doc(payload.id).update(update)
         .then(() => {
           commit('setSnackbar', snackbar)
         })
@@ -124,19 +117,18 @@ export default {
         .then(
           user => {
             commit('setLoading', false)
-            firebase.database().ref('/users/' + user.uid).once('value')
-            .then((data) => {
-              const obj = data.val()
+            firebase.firestore().collection('users').doc(user.uid).get()
+            .then((doc) => {
               const currentUser = {
                 id: user.uid,
                 profile: {
-                  displayName: obj.profile.displayName,
-                  username: obj.profile.username,
-                  email: obj.profile.email
+                  displayName: doc.data().profile.displayName,
+                  username: doc.data().profile.username,
+                  email: doc.data().profile.email
                 },
                 role: {
-                  id: obj.role.id,
-                  name: obj.role.name
+                  id: doc.data().role.id,
+                  name: doc.data().role.name
                   
                 }
               }
@@ -152,9 +144,9 @@ export default {
         )
     },
     autoSignIn ({commit}, payload) {
-      firebase.database().ref('/users/' + payload.uid).once('value')
-        .then((data) => {
-          const obj = data.val()
+      firebase.firestore().collection('users').doc(payload.uid).get()
+        .then((doc) => {
+          const obj = doc.data()
           const currentUser = {
             id: payload.uid,
             profile: {
@@ -175,16 +167,16 @@ export default {
       commit('setUser', null)
     },
     loadRoles ({commit}) {
-      firebase.database().ref('roles').once('value')
-      .then((data) => {
+      firebase.firestore().collection('roles').get()
+      .then((querySnapshot) => {
         const roles = []
-        const obj = data.val()
-        for (let key in obj) {
+        querySnapshot.forEach((doc) => {
+          const obj = doc.data()
           roles.push({
-            id: key,
-            name: obj[key].name,
+            id: doc.id,
+            name: obj.name,
           })
-        }
+        })
         commit('setLoadedRoles', roles)
       })
       .catch((error) => {

@@ -32,7 +32,7 @@
                 </v-layout>
                 <v-layout row>
                   <v-flex xs12>
-                    <v-btn type="submit" :loading="loading" :disabled="loading">Sign in
+                    <v-btn type="submit">Sign in
                       <span slot="loader" class="custom-loader">
                         <v-icon light>cached</v-icon>
                       </span>
