@@ -56,7 +56,7 @@ export default {
         .then(fbAuth => {
           const updateUserData = {}
           const batch = firebase.firestore().batch()
-          const userRef = firebase.firestore().collection('users').doc(fbAuth.id)
+          const userRef = firebase.firestore().collection('users').doc(fbAuth.uid)
           batch.set(userRef, {
             profile: {
               displayName: payload.displayName,
@@ -69,7 +69,7 @@ export default {
             }
           })
           const roleRef = firebase.firestore().collection('roles').doc(payload.role.id)
-          batch.update(roleRef, {'users': fbAuth.uid = true})
+          batch.update(roleRef, {users: {[fbAuth.uid]: true}})
           batch.commit().then(() => {
             commit('setSnackbar', snackbar)
             firebase.app('secondary').delete()
