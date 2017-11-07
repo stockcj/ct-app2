@@ -81,6 +81,16 @@ export default {
             })
           })
         })
+        .catch((error) => {
+          commit('setError', error)
+          firebase.app('secondary').delete()
+          .then(() => {
+            console.log("Secondary app deleted successfully")
+          })
+          .catch((error) => {
+            console.log("Error deleting app:", error)
+          })
+        })
     },
     updateUser ({commit}, payload) {
       commit('clearError')
@@ -119,6 +129,7 @@ export default {
             commit('setLoading', false)
             firebase.firestore().collection('users').doc(user.uid).get()
             .then((doc) => {
+              console.log(doc.data())
               const currentUser = {
                 id: user.uid,
                 profile: {
